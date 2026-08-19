@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Precios Subastas">
+<meta name="theme-color" content="#0F1720">
+<title>Precios Subastas</title>
+<style>
+  :root{
+    --bg:#EEF1F5; --surface:#FFFFFF; --panel:#0F1720;
+    --ink:#0F1720; --ink-soft:#5A6675; --border:#CBD3DE;
+    --brand:#1D4ED8; --readout:#34D399;
+    --ok:#15803D; --ok-bg:#E7F5EC; --warn:#B45309; --warn-bg:#FBF1E3;
+    --high:#B91C1C; --high-bg:#FBEAEA;
+    --num: ui-monospace,"SF Mono","Menlo","Consolas","Roboto Mono",monospace;
+    --ui: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--ui);line-height:1.35;
+    -webkit-text-size-adjust:100%;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);}
+  .wrap{max-width:920px;margin:0 auto;padding:0 14px}
+
+  .topbar{position:sticky;top:0;z-index:20;background:var(--bg);
+    display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0 8px;}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:.9rem;letter-spacing:-.01em;white-space:nowrap}
+  .brand .dot{width:11px;height:11px;border-radius:3px;background:var(--brand)}
+  .sync{display:inline-flex;align-items:center;gap:5px;font-size:.66rem;font-weight:800;color:var(--ink-soft);
+    background:#DCE2EA;border-radius:99px;padding:3px 8px;white-space:nowrap}
+  .sync .s{width:8px;height:8px;border-radius:99px;background:#9AA6B4}
+  .sync.on .s{background:var(--ok)} .sync.off .s{background:var(--warn)} .sync.err .s{background:var(--high)}
+  .tabs{display:flex;background:#DCE2EA;border-radius:12px;padding:4px}
+  .tabs button{border:0;background:transparent;font-family:var(--ui);font-weight:800;
+    font-size:.88rem;padding:9px 15px;border-radius:9px;color:var(--ink-soft);cursor:pointer}
+  .tabs button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+  .tabs-full{display:grid;grid-template-columns:1fr 1fr 1fr;width:100%;margin-bottom:8px}
+
+  #errBanner{background:var(--high-bg);border:1px solid var(--high);color:var(--high);
+    border-radius:10px;padding:10px 12px;font-size:.82rem;font-weight:700;margin:2px 0 8px;line-height:1.4}
+  #okBanner{background:var(--ok-bg);border:1px solid var(--ok);color:var(--ok);
+    border-radius:10px;padding:10px 12px;font-size:.82rem;font-weight:800;margin:2px 0 8px}
+
+  .eyebrow{font-size:.68rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);margin:10px 0 6px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .rowcap{display:grid;grid-template-columns:1.25fr 1fr auto;gap:8px}
+  /* Selector de condición */
+  .cond{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .cond-btn{height:50px;border:2px solid var(--border);border-radius:11px;background:var(--surface);
+    font-family:var(--ui);font-weight:800;font-size:.92rem;cursor:pointer;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;gap:7px}
+  .cond-btn .cdot{width:15px;height:15px;border-radius:99px;display:inline-block}
+  .cond-btn.on{border-width:3px}
+  .cond-btn[data-cond="rojo"].on{border-color:var(--high);background:var(--high-bg)}
+  .cond-btn[data-cond="amarillo"].on{border-color:var(--warn);background:var(--warn-bg)}
+  .cond-btn[data-cond="verde"].on{border-color:var(--ok);background:var(--ok-bg)}
+  .cdot.red{background:var(--high)} .cdot.amber{background:var(--warn)} .cdot.green{background:var(--ok)}
+  /* Chips de condición en el panel */
+  .condrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+  .condchip{background:rgba(255,255,255,.06);border-radius:10px;padding:8px 6px;text-align:center}
+  .condchip .ch{display:flex;align-items:center;justify-content:center;gap:5px;font-size:.66rem;font-weight:800;color:#9FB0C3;text-transform:uppercase;letter-spacing:.04em}
+  .condchip .cd{width:10px;height:10px;border-radius:99px;display:inline-block}
+  .condchip .cv{font-family:var(--num);font-weight:800;font-size:1.02rem;margin-top:3px;color:#E4EAF1}
+  .condchip .cn{font-size:.6rem;color:#8DA0B6;font-weight:700}
+  /* punto de color global */
+  .cd{display:inline-block;width:12px;height:12px;border-radius:99px}
+  .cd.green{background:var(--ok)} .cd.amber{background:var(--warn)} .cd.red{background:var(--high)}
+  /* líneas del reporte por condición */
+  .condline{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:11px;margin-bottom:8px;border:2px solid var(--border)}
+  .condline.verde{border-color:var(--ok);background:var(--ok-bg)}
+  .condline.amarillo{border-color:var(--warn);background:var(--warn-bg)}
+  .condline.rojo{border-color:var(--high);background:var(--high-bg)}
+  .condline .cl-lbl{display:flex;align-items:center;gap:8px;font-weight:800;font-size:.95rem}
+  .condline .cl-amt{font-family:var(--num);font-weight:800;font-size:1.2rem;text-align:right}
+  .condline .cl-amt .cl-n{display:block;font-size:.62rem;color:var(--ink-soft);font-weight:700}
+  /* Agregar catálogo */
+  .addrow{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:10px}
+  .addrow2{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:10px}
+  .card label{display:block;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin:10px 0 4px}
+  .chiplist{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+  .chipx{display:inline-flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:99px;padding:4px 4px 4px 11px;font-size:.8rem;font-weight:800}
+  .chipx button{border:0;background:transparent;color:var(--high);font-weight:800;cursor:pointer;font-size:1rem;padding:0 5px;line-height:1}
+  select,input[type=number],input[type=email],input[type=password]{width:100%;height:50px;border:2px solid var(--border);border-radius:11px;
+    background:var(--surface);color:var(--ink);font-size:1rem;font-weight:700;padding:0 10px;font-family:var(--ui)}
+  select:focus,input:focus,button:focus-visible{outline:3px solid #93C5FD;outline-offset:1px}
+  .btn{height:50px;padding:0 16px;border:0;border-radius:11px;background:var(--brand);color:#fff;
+    font-weight:800;font-size:1rem;font-family:var(--ui);cursor:pointer;white-space:nowrap}
+  .btn:active{transform:translateY(1px)} .btn.ghost{background:var(--surface);color:var(--ink);border:2px solid var(--border)}
+  .btn.danger{background:var(--high)} .btn.block{width:100%}
+
+  .panel{background:var(--panel);border-radius:16px;padding:16px;color:#fff;margin-top:10px}
+  .panel .veh{font-size:.82rem;font-weight:800;color:#9FB0C3;letter-spacing:.02em;margin-bottom:10px}
+  .duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .duo .cell .k{font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#8DA0B6}
+  .duo .cell .v{font-family:var(--num);font-weight:800;font-size:2.15rem;line-height:1.05;color:var(--readout);letter-spacing:-.02em}
+  .duo .cell.aucCell .v{color:#93C5FD}
+  .duo .cell .v small{font-size:.7rem;color:#8DA0B6;margin-left:4px;font-weight:700}
+  .vstrip{margin-top:12px;border-radius:10px;padding:11px 12px;font-weight:800;font-size:.95rem;display:flex;gap:8px;align-items:center}
+  .vstrip.neutral{background:rgba(255,255,255,.08);color:#B8C4D2}
+  .vstrip.ok{background:rgba(52,211,153,.16);color:#6EE7B7}
+  .vstrip.warn{background:rgba(245,158,11,.16);color:#FCD34D}
+  .vstrip.high{background:rgba(248,113,113,.16);color:#FCA5A5}
+  .vstrip .big{font-size:1.02rem}
+  .pfoot{margin-top:11px;font-size:.8rem;color:#9FB0C3;font-weight:700;display:flex;flex-wrap:wrap;gap:4px 14px}
+  .pfoot b{color:#E4EAF1}
+  .pfoot .limtap{background:transparent;border:0;color:#93C5FD;font-family:var(--ui);font-weight:800;font-size:.8rem;cursor:pointer;text-decoration:underline;padding:0}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px}
+  .card h3{margin:0 0 4px;font-size:1rem;font-weight:800}
+  .card .sub{font-size:.8rem;color:var(--ink-soft);font-weight:600;margin:0 0 12px}
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .kpi{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px}
+  .kpi .k{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft)}
+  .kpi .v{font-family:var(--num);font-weight:800;font-size:1.35rem;margin-top:4px} .kpi .v.small{font-size:1rem}
+  .bar{display:grid;grid-template-columns:120px 1fr auto;align-items:center;gap:8px;margin:7px 0}
+  .bar .lbl{font-size:.82rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar .track{background:var(--bg);border-radius:7px;height:22px;overflow:hidden;border:1px solid var(--border)}
+  .bar .fill{height:100%;background:var(--brand);border-radius:6px} .bar.best .fill{background:var(--ok)}
+  .bar .amt{font-family:var(--num);font-weight:800;font-size:.88rem;text-align:right;min-width:64px}
+  .bar .amt .n{display:block;font-size:.62rem;color:var(--ink-soft);font-weight:700}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:9px 6px;border-bottom:1px solid var(--border);font-size:.9rem}
+  th{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);font-weight:800}
+  td.amt{font-family:var(--num);font-weight:800;text-align:right}
+  .xbtn{width:38px;height:38px;border-radius:9px;border:2px solid var(--border);background:var(--surface);cursor:pointer;font-weight:800;color:var(--high)}
+  .empty{padding:16px;text-align:center;color:var(--ink-soft);font-weight:700;background:var(--bg);border-radius:10px;font-size:.9rem}
+  .btn-row{display:flex;flex-wrap:wrap;gap:8px}
+  .oppitem{display:flex;justify-content:space-between;gap:10px;padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px}
+  .oppitem.good{border-color:var(--ok);background:var(--ok-bg)}
+  .oppitem .lab{font-weight:800;font-size:.9rem} .oppitem .r{font-family:var(--num);font-weight:800;text-align:right;font-size:.85rem}
+  .trendnote{font-size:.85rem;font-weight:700;margin-top:8px}
+  svg.spark{width:100%;height:110px;display:block}
+  .hide{display:none!important}
+
+  #authOverlay{position:fixed;inset:0;z-index:100;background:var(--panel);display:flex;align-items:center;justify-content:center;padding:20px}
+  .authcard{background:var(--surface);border-radius:18px;padding:24px;width:100%;max-width:380px}
+  .authbrand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.05rem;margin-bottom:6px}
+  .authbrand .dot{width:13px;height:13px;border-radius:3px;background:var(--brand)}
+  .authcard p{font-size:.9rem;color:var(--ink-soft);font-weight:600;margin:6px 0 16px}
+  .authcard input{margin-bottom:10px}
+  .autherr{color:var(--high);font-weight:800;font-size:.85rem;min-height:1.1em;margin:2px 0 8px}
+  .authhint{font-size:.78rem;color:var(--ink-soft);font-weight:600;margin:14px 0 0!important;text-align:center}
+  .authcard .btn{margin-bottom:8px}
+  @media(min-width:560px){ .kpis{grid-template-columns:1fr 1fr 1fr 1fr} }
+</style>
+</head>
+<body>
+
+<div id="authOverlay" class="hide">
+  <div class="authcard">
+    <div class="authbrand"><span class="dot"></span> PRECIOS SUBASTAS</div>
+    <p>Entra para sincronizar tus precios en todos tus dispositivos.</p>
+    <input type="email" id="authEmail" placeholder="Correo" autocomplete="username">
+    <input type="password" id="authPass" placeholder="Contraseña (mín. 6 caracteres)" autocomplete="current-password">
+    <div class="autherr" id="authErr"></div>
+    <button class="btn block" id="btnLogin">Entrar</button>
+    <button class="btn ghost block" id="btnSignup">Crear cuenta nueva</button>
+    <p class="authhint">La primera vez, pulsa "Crear cuenta nueva". Después entra con el mismo correo en cualquier dispositivo.</p>
+  </div>
+</div>
+
+<div class="wrap hide" id="app">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span> PRECIOS SUBASTAS</div>
+    <span class="sync" id="syncPill" title="Estado de sincronización"><span class="s"></span><span id="syncTxt">…</span></span>
+  </div>
+  <div class="tabs tabs-full">
+    <button id="tabDatos" class="on">DATOS</button>
+    <button id="tabRep">REPORTES</button>
+    <button id="tabCat">CATÁLOGO</button>
+  </div>
+
+  <div id="errBanner" class="hide"></div>
+  <div id="okBanner" class="hide"></div>
+
+  <div id="viewDatos">
+    <div class="eyebrow">Vehículo</div>
+    <div class="row3">
+      <select id="selMarca"></select><select id="selModelo"></select><select id="selAnio"></select>
+    </div>
+    <div class="eyebrow">Condición del vehículo</div>
+    <div class="cond" id="condSel">
+      <button type="button" class="cond-btn" data-cond="rojo"><span class="cdot red"></span>Rojo</button>
+      <button type="button" class="cond-btn on" data-cond="amarillo"><span class="cdot amber"></span>Amarillo</button>
+      <button type="button" class="cond-btn" data-cond="verde"><span class="cdot green"></span>Verde</button>
+    </div>
+    <div class="eyebrow">Registrar / evaluar precio (USD)</div>
+    <div class="rowcap">
+      <select id="capAuction"></select>
+      <input type="number" id="capPrecio" inputmode="decimal" min="0" step="100" placeholder="Ej. 21500">
+      <button class="btn" id="capBtn">Agregar</button>
+    </div>
+    <div class="panel">
+      <div class="veh" id="roVeh">Selecciona marca, año y modelo</div>
+      <div class="duo">
+        <div class="cell"><div class="k">Precio global</div><div class="v" id="roGlobal">—</div></div>
+        <div class="cell aucCell"><div class="k" id="roAucK">Auction</div><div class="v" id="roAuc">—</div></div>
+      </div>
+      <div class="vstrip neutral" id="vstrip"><span class="big">Escribe un precio para evaluarlo</span></div>
+      <div class="condrow" id="condRow"></div>
+      <div class="pfoot" id="pfoot"></div>
+    </div>
+  </div>
+
+  <div id="viewRep" class="hide"><div id="repContent"></div></div>
+
+  <div id="viewCat" class="hide"><div id="catContent"></div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, onSnapshot, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+
+/* ===== Config ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyAMai3X4eAs5KktkprR9SMnP_GLZmMsur0",
+  authDomain: "price-database-cfcaf.firebaseapp.com",
+  projectId: "price-database-cfcaf",
+  storageBucket: "price-database-cfcaf.firebasestorage.app",
+  messagingSenderId: "550844463981",
+  appId: "1:550844463981:web:69ea49ac0298106cd17864",
+  measurementId: "G-7VVTN6G93T"
+};
+const DATABASE_ID = "price";   // <-- tu base de datos se llama 'price'
+
+/* ===== Catálogo ===== */
+const AUCTIONS=["PHOENIX","TUCSON","FRESNO","OCEANSIDE","RIVERSIDE","SOUTHERN CALIFORNIA","SAN FRANCISCO","NEVADA","EL PASO","SAN ANTONIO"];
+const YEARS=[2017,2018,2019,2020,2021,2022,2023];
+const MARCAS={"CHEVROLET":["COLORADO","SILVERADO"],"FORD":["BRONCO","F-150","F-250","RANGER"],"GMC":["SIERRA","YUKON"],"JEEP":["GLADIATOR","WRANGLER"],"NISSAN":["FRONTIER"],"RAM":["1500","2500"],"TOYOTA":["TACOMA","TUNDRA"]};
+
+/* ===== Estado ===== */
+const LS_REG="vsub_registros",LS_LIM="vsub_limites",LS_EXTRA="vsub_extra";
+let registros=load(LS_REG,[]), limites=load(LS_LIM,{});
+let extra=load(LS_EXTRA,{marcas:{},anios:[]});
+if(!extra||typeof extra!=="object") extra={marcas:{},anios:[]};
+if(!extra.marcas||typeof extra.marcas!=="object") extra.marcas={};
+if(!Array.isArray(extra.anios)) extra.anios=[];
+if(!Array.isArray(extra.auctions)) extra.auctions=[];
+let curCond="amarillo";
+const CONDS=[{k:"verde",lbl:"Verde",dot:"green"},{k:"amarillo",lbl:"Amarillo",dot:"amber"},{k:"rojo",lbl:"Rojo",dot:"red"}];
+let auth=null, db=null, user=null, userRef=null, unsub=null, cloudMode=false, cloudReady=false;
+
+function load(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}}
+function saveLocal(){try{localStorage.setItem(LS_REG,JSON.stringify(registros));localStorage.setItem(LS_LIM,JSON.stringify(limites));localStorage.setItem(LS_EXTRA,JSON.stringify(extra))}catch(e){}}
+
+/* ===== Catálogo (base + agregados por el usuario) ===== */
+function catMarcas(){
+  const out={};
+  for(const m in MARCAS) out[m]=MARCAS[m].slice();
+  for(const m in extra.marcas){ out[m]=out[m]||[]; (extra.marcas[m]||[]).forEach(mo=>{ if(!out[m].includes(mo)) out[m].push(mo); }); }
+  return out;
+}
+function catYears(){ return [...new Set(YEARS.concat(extra.anios||[]))].sort((a,b)=>a-b); }
+function catAuctions(){ return [...new Set(AUCTIONS.concat(extra.auctions||[]))]; }
+function fillVehicleSelects(){
+  const curM=$("selMarca").value,curMo=$("selModelo").value,curA=$("selAnio").value,curAuc=$("capAuction").value;
+  const marcas=catMarcas();
+  fill($("selMarca"),Object.keys(marcas).sort(),"Marca");
+  fill($("selAnio"),catYears(),"Año");
+  fill($("capAuction"),catAuctions(),"Auction");
+  if(curM && marcas[curM]){ $("selMarca").value=curM; fill($("selModelo"),marcas[curM],"Modelo"); if(curMo && marcas[curM].includes(curMo)) $("selModelo").value=curMo; }
+  else { fill($("selModelo"),[],"Modelo"); }
+  if(curA && catYears().includes(Number(curA))) $("selAnio").value=curA;
+  if(curAuc && catAuctions().includes(curAuc)) $("capAuction").value=curAuc;
+}
+function addMarca(name){
+  name=(name||"").trim().toUpperCase(); if(!name) return;
+  if(MARCAS[name]||extra.marcas[name]){ alert("Esa marca ya existe."); return; }
+  extra.marcas[name]=[]; persist(); refreshCatalog();
+}
+function addModelo(marca,modelo){
+  marca=(marca||"").trim().toUpperCase(); modelo=(modelo||"").trim().toUpperCase();
+  if(!marca){ alert("Elige la marca."); return; } if(!modelo){ alert("Escribe el modelo."); return; }
+  if((catMarcas()[marca]||[]).includes(modelo)){ alert("Ese modelo ya existe en "+marca+"."); return; }
+  extra.marcas[marca]=extra.marcas[marca]||[]; extra.marcas[marca].push(modelo); persist(); refreshCatalog();
+}
+function addAnio(y){
+  y=parseInt(y,10); if(!y||y<1950||y>2100){ alert("Escribe un año válido."); return; }
+  if(catYears().includes(y)){ alert("Ese año ya está en la lista."); return; }
+  extra.anios.push(y); persist(); refreshCatalog();
+}
+function removeMarca(m){ if(!confirm("¿Quitar la marca "+m+" y sus modelos agregados?")) return; delete extra.marcas[m]; persist(); refreshCatalog(); }
+function removeModelo(m,mo){ if(extra.marcas[m]){ extra.marcas[m]=extra.marcas[m].filter(x=>x!==mo); if(!extra.marcas[m].length && !MARCAS[m]) delete extra.marcas[m]; } persist(); refreshCatalog(); }
+function removeAnio(y){ extra.anios=extra.anios.filter(x=>x!==y); persist(); refreshCatalog(); }
+function addAuction(name){ name=(name||"").trim().toUpperCase(); if(!name) return; if(catAuctions().includes(name)){ alert("Esa auction ya existe."); return; } extra.auctions.push(name); persist(); refreshCatalog(); }
+function removeAuction(a){ extra.auctions=extra.auctions.filter(x=>x!==a); persist(); refreshCatalog(); }
+function refreshCatalog(){ fillVehicleSelects(); render(); if(!$("viewCat").classList.contains("hide")) renderCatalogo(); refreshRep(); }
+
+/* ===== Utilidades ===== */
+const usd=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
+const $=id=>document.getElementById(id);
+const key=(m,a,mo)=>m+"|"+a+"|"+mo;
+const sel=()=>({marca:$("selMarca").value,anio:$("selAnio").value,modelo:$("selModelo").value});
+const complete=s=>s.marca&&s.anio&&s.modelo;
+const vlabel=s=>s.marca+" · "+s.anio+" · "+s.modelo;
+const regsOf=s=>registros.filter(r=>r.marca===s.marca&&r.anio==s.anio&&r.modelo===s.modelo);
+const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+const money=n=>usd.format(Math.round(n));
+const nfmt=n=>new Intl.NumberFormat("en-US",{maximumFractionDigits:0}).format(Math.round(n));
+const pct=d=>Math.abs(d*100).toFixed(1)+"%";
+
+/* ===== Banners de estado ===== */
+function showErr(msg){ const b=$("errBanner"); b.textContent=msg; b.classList.remove("hide"); $("okBanner").classList.add("hide"); }
+function clearErr(){ $("errBanner").classList.add("hide"); }
+function showOk(msg){ const b=$("okBanner"); b.textContent=msg; b.classList.remove("hide"); setTimeout(()=>b.classList.add("hide"),3500); }
+function firestoreErrMsg(e){
+  const c=(e&&e.code)||"";
+  if(c.includes("permission-denied")) return "Firestore RECHAZÓ el guardado (permission-denied). Falta PUBLICAR las reglas de seguridad en la base '"+DATABASE_ID+"'.";
+  if(c.includes("unavailable")) return "Sin conexión con la nube ahora mismo. Se reintentará solo.";
+  if(c.includes("not-found")) return "No se encontró la base de datos '"+DATABASE_ID+"'. Revisa el nombre en Firestore.";
+  if(c.includes("unauthenticated")) return "La sesión no está activa. Vuelve a entrar.";
+  return "Error de sincronización: "+(c||e.message||e);
+}
+
+/* ===== Guardar ===== */
+function persist(){
+  saveLocal();
+  if(userRef){
+    setDoc(userRef,{registros,limites,extra,updatedAt:serverTimestamp()})
+      .then(()=>{ clearErr(); })
+      .catch(e=>{ showErr(firestoreErrMsg(e)); updateSync(true); });
+  }
+}
+
+/* ===== Selects ===== */
+function fill(el,items,ph){el.innerHTML="<option value=''>"+ph+"</option>"+items.map(i=>`<option value="${i}">${i}</option>`).join("")}
+fillVehicleSelects();
+$("selMarca").addEventListener("change",()=>{const m=$("selMarca").value;fill($("selModelo"),m?(catMarcas()[m]||[]):[],"Modelo");render()});
+$("selAnio").addEventListener("change",render);
+$("selModelo").addEventListener("change",render);
+$("capAuction").addEventListener("change",render);
+$("capPrecio").addEventListener("input",render);
+$("condSel").addEventListener("click",e=>{
+  const b=e.target.closest(".cond-btn"); if(!b) return;
+  curCond=b.dataset.cond;
+  document.querySelectorAll("#condSel .cond-btn").forEach(x=>x.classList.toggle("on",x===b));
+  render();
+});
+$("tabDatos").addEventListener("click",()=>showTab("datos"));
+$("tabRep").addEventListener("click",()=>showTab("rep"));
+$("tabCat").addEventListener("click",()=>showTab("cat"));
+
+/* ===== Tabs ===== */
+function showTab(t){
+  const views={datos:"viewDatos",rep:"viewRep",cat:"viewCat"};
+  const tabs={datos:"tabDatos",rep:"tabRep",cat:"tabCat"};
+  for(const k in views){ $(views[k]).classList.toggle("hide",k!==t); $(tabs[k]).classList.toggle("on",k===t); }
+  if(t==="rep") renderReportes();
+  if(t==="cat") renderCatalogo();
+}
+
+/* ===== Render CATÁLOGO ===== */
+function renderCatalogo(){
+  const c=$("catContent");
+  const marcas=catMarcas();
+  const marcaOpts=Object.keys(marcas).sort().map(m=>`<option value="${m}">${m}</option>`).join("");
+  // agregados personalizados
+  const customMarcas=Object.keys(extra.marcas).filter(m=>!MARCAS[m]);
+  const extraModelos=[];
+  Object.keys(extra.marcas).forEach(m=>{ (extra.marcas[m]||[]).forEach(mo=>{ if(MARCAS[m]) extraModelos.push([m,mo]); }); });
+  let cl="";
+  if(customMarcas.length){ cl+=`<label>Marcas nuevas</label><div class="chiplist">`+customMarcas.map(m=>`<span class="chipx">${m}<button data-delmarca="${m}">✕</button></span>`).join("")+`</div>`; }
+  if(extraModelos.length){ cl+=`<label>Modelos agregados</label><div class="chiplist">`+extraModelos.map(([m,mo])=>`<span class="chipx">${m} · ${mo}<button data-delmodelo="${m}|${mo}">✕</button></span>`).join("")+`</div>`; }
+  if(customMarcas.length){ // modelos de marcas nuevas
+    const nm=[]; customMarcas.forEach(m=>(extra.marcas[m]||[]).forEach(mo=>nm.push([m,mo])));
+    if(nm.length){ cl+=`<label>Modelos de marcas nuevas</label><div class="chiplist">`+nm.map(([m,mo])=>`<span class="chipx">${m} · ${mo}<button data-delmodelo="${m}|${mo}">✕</button></span>`).join("")+`</div>`; }
+  }
+  if((extra.anios||[]).length){ cl+=`<label>Años agregados</label><div class="chiplist">`+extra.anios.slice().sort((a,b)=>a-b).map(y=>`<span class="chipx">${y}<button data-delanio="${y}">✕</button></span>`).join("")+`</div>`; }
+  if((extra.auctions||[]).length){ cl+=`<label>Auctions agregadas</label><div class="chiplist">`+extra.auctions.map(a=>`<span class="chipx">${a}<button data-delauc="${a}">✕</button></span>`).join("")+`</div>`; }
+  if(!cl) cl=`<div class="empty">Aún no has agregado marcas, modelos ni años personalizados.</div>`;
+
+  c.innerHTML=`
+    <div class="card">
+      <h3>Agregar marca</h3>
+      <p class="sub">Crea una marca nueva que no esté en la lista.</p>
+      <div class="addrow"><input type="text" id="addMarcaTxt" placeholder="Ej. HONDA"><button class="btn" id="addMarcaBtn">Agregar</button></div>
+    </div>
+    <div class="card">
+      <h3>Agregar modelo</h3>
+      <p class="sub">Añade un modelo a cualquier marca (de las que ya hay o de una nueva).</p>
+      <div class="addrow2"><select id="addModeloMarca"><option value="">Marca…</option>${marcaOpts}</select><input type="text" id="addModeloTxt" placeholder="Ej. RIDGELINE"><button class="btn" id="addModeloBtn">Agregar</button></div>
+    </div>
+    <div class="card">
+      <h3>Agregar año</h3>
+      <p class="sub">Amplía la lista de años (por ejemplo, un año más reciente).</p>
+      <div class="addrow"><input type="number" id="addAnioTxt" inputmode="numeric" min="1950" max="2100" placeholder="Ej. 2024"><button class="btn" id="addAnioBtn">Agregar</button></div>
+    </div>
+    <div class="card">
+      <h3>Agregar auction</h3>
+      <p class="sub">Añade una subasta que no esté en la lista.</p>
+      <div class="addrow"><input type="text" id="addAucTxt" placeholder="Ej. DALLAS"><button class="btn" id="addAucBtn">Agregar</button></div>
+    </div>
+    <div class="card">
+      <h3>Tus agregados</h3>
+      <p class="sub">Se sincronizan en todos tus dispositivos. Toca la ✕ para quitar.</p>
+      ${cl}
+    </div>`;
+
+  $("addMarcaBtn").onclick=()=>addMarca($("addMarcaTxt").value);
+  $("addMarcaTxt").addEventListener("keydown",e=>{if(e.key==="Enter")addMarca($("addMarcaTxt").value);});
+  $("addModeloBtn").onclick=()=>addModelo($("addModeloMarca").value,$("addModeloTxt").value);
+  $("addModeloTxt").addEventListener("keydown",e=>{if(e.key==="Enter")addModelo($("addModeloMarca").value,$("addModeloTxt").value);});
+  $("addAnioBtn").onclick=()=>addAnio($("addAnioTxt").value);
+  $("addAnioTxt").addEventListener("keydown",e=>{if(e.key==="Enter")addAnio($("addAnioTxt").value);});
+  $("addAucBtn").onclick=()=>addAuction($("addAucTxt").value);
+  $("addAucTxt").addEventListener("keydown",e=>{if(e.key==="Enter")addAuction($("addAucTxt").value);});
+  c.querySelectorAll("[data-delauc]").forEach(b=>b.onclick=()=>removeAuction(b.dataset.delauc));
+  c.querySelectorAll("[data-delmarca]").forEach(b=>b.onclick=()=>removeMarca(b.dataset.delmarca));
+  c.querySelectorAll("[data-delmodelo]").forEach(b=>b.onclick=()=>{const [m,mo]=b.dataset.delmodelo.split("|");removeModelo(m,mo);});
+  c.querySelectorAll("[data-delanio]").forEach(b=>b.onclick=()=>removeAnio(Number(b.dataset.delanio)));
+}
+
+/* ===== Render DATOS ===== */
+function render(){
+  const s=sel(), ok=complete(s);
+  const rs=ok?regsOf(s):[]; const prices=rs.map(r=>r.precio);
+  const g=avg(prices); const lim=ok?(limites[key(s.marca,s.anio,s.modelo)]??null):null;
+  const aucName=$("capAuction").value;
+  const aucAvg=aucName?avg(rs.filter(r=>r.auction===aucName).map(r=>r.precio)):null;
+  const condAvg=ok?avg(rs.filter(r=>r.cond===curCond).map(r=>r.precio)):null;
+  const refAvg=condAvg!=null?condAvg:g;
+  $("roVeh").textContent = ok?vlabel(s):"Selecciona marca, año y modelo";
+  $("roGlobal").innerHTML = g!=null?money(g)+"<small>USD</small>":"—";
+  $("roAucK").textContent = aucName?("Auction · "+aucName):"Auction";
+  $("roAuc").innerHTML = aucAvg!=null?money(aucAvg):"—";
+  const typed=parseFloat($("capPrecio").value); const vs=$("vstrip");
+  if(ok && !isNaN(typed) && typed>0){ const v=verdict(typed,refAvg,lim,condAvg!=null?curCond:null); vs.className="vstrip "+v.cls; vs.innerHTML=`<span class="big">${v.big}</span>&nbsp;— ${v.detail}`; }
+  else if(!ok){ vs.className="vstrip neutral"; vs.innerHTML='<span class="big">Elige el vehículo para empezar</span>'; }
+  else if(g==null){ vs.className="vstrip neutral"; vs.innerHTML='<span class="big">Sin precios aún. Captura el primero.</span>'; }
+  else if(lim!=null){ if(g<=lim){vs.className="vstrip ok";vs.innerHTML=`<span class="big">✓ Promedio dentro de tu límite</span>&nbsp;(${money(lim)})`;} else{vs.className="vstrip high";vs.innerHTML=`<span class="big">▲ Promedio supera tu límite</span>&nbsp;(${money(lim)})`;} }
+  else { vs.className="vstrip neutral"; vs.innerHTML='<span class="big">Escribe un precio para evaluarlo</span>'; }
+  $("condRow").innerHTML=CONDS.map(c=>{const cv=ok?avg(rs.filter(r=>r.cond===c.k).map(r=>r.precio)):null;const cn=ok?rs.filter(r=>r.cond===c.k).length:0;return `<div class="condchip"><div class="ch"><span class="cd ${c.dot}"></span>${c.lbl}</div><div class="cv">${cv!=null?money(cv):"—"}</div><div class="cn">${cn} m.</div></div>`;}).join("");
+  const pf=$("pfoot"); const mn=prices.length?money(Math.min(...prices)):"—"; const mx=prices.length?money(Math.max(...prices)):"—";
+  pf.innerHTML=`<span><b>${prices.length}</b> muestras</span><span>mín <b>${mn}</b></span><span>máx <b>${mx}</b></span><span>límite <button class="limtap" id="limTap">${lim!=null?money(lim):"definir"}</button></span>`;
+  $("limTap").onclick=setLimite;
+}
+function verdict(p,g,lim,condK){
+  const cx = condK?(" ("+condK+")"):"";
+  if(lim!=null && p>lim) return {cls:"high",big:"PRECIO ALTO — NO COMPRAR",detail:`US$${nfmt(p)} arriba de tu límite (${money(lim)})`};
+  if(g==null){ if(lim!=null) return {cls:"ok",big:"DENTRO DE TU LÍMITE",detail:`US$${nfmt(p)} por debajo de ${money(lim)}. Sin promedio aún.`}; return {cls:"neutral",big:"SIN REFERENCIA",detail:"Aún no hay promedio ni límite."}; }
+  const d=(p-g)/g;
+  if(p<=g) return {cls:"ok",big:"BUENA OPORTUNIDAD",detail:`${pct(d)} debajo del promedio${cx} (${money(g)})`};
+  if(d<=0.03) return {cls:"warn",big:"EN EL PROMEDIO",detail:`~${money(g)} de promedio${cx}`};
+  return {cls:"warn",big:"ARRIBA DEL PROMEDIO",detail:`${pct(d)} sobre el promedio${cx} (${money(g)})`};
+}
+
+/* ===== Capturar ===== */
+$("capBtn").addEventListener("click",()=>{
+  const s=sel();
+  if(!complete(s)){alert("Primero selecciona marca, año y modelo.");return;}
+  const a=$("capAuction").value, p=parseFloat($("capPrecio").value);
+  if(!a){alert("Elige la auction.");return;}
+  if(isNaN(p)||p<=0){alert("Escribe un precio válido.");return;}
+  registros.push({id:Date.now(),marca:s.marca,anio:Number(s.anio),modelo:s.modelo,auction:a,precio:p,cond:curCond,fecha:new Date().toISOString().slice(0,10)});
+  persist(); $("capPrecio").value=""; render(); refreshRep();
+  if(cloudMode && userRef) showOk("Guardado. Subiendo a la nube…");
+});
+
+/* ===== Límite ===== */
+function setLimite(){
+  const s=sel(); if(!complete(s)){alert("Primero selecciona el vehículo.");return;}
+  const k=key(s.marca,s.anio,s.modelo); const cur=limites[k]!=null?limites[k]:"";
+  const val=prompt("Límite máximo de compra para "+vlabel(s)+" (USD).\nDeja vacío para quitarlo:",cur);
+  if(val===null) return;
+  const n=parseFloat(val);
+  if(val.trim()===""){ delete limites[k]; } else if(isNaN(n)||n<=0){ alert("Valor no válido."); return; } else { limites[k]=Math.round(n); }
+  persist(); render(); refreshRep();
+}
+
+/* ===== REPORTES ===== */
+function refreshRep(){ if(!$("viewRep").classList.contains("hide")) renderReportes(); }
+function renderReportes(){
+  const s=sel(), c=$("repContent"); const hasData=registros.length>0; let html="";
+  html+=`<div class="card"><h3>Resumen general</h3>`;
+  if(!hasData){ html+=`<div class="empty">Aún no capturas precios. Ve a la pestaña DATOS y registra los primeros.</div></div>`; }
+  else{
+    const vehSet=new Set(registros.map(r=>key(r.marca,r.anio,r.modelo)));
+    const aucAvgAll=AUCTIONS.map(a=>({a,v:avg(registros.filter(r=>r.auction===a).map(r=>r.precio))})).filter(x=>x.v!=null);
+    const bestAuc=aucAvgAll.length?aucAvgAll.reduce((m,x)=>x.v<m.v?x:m):null;
+    const modMap={}; registros.forEach(r=>{(modMap[r.marca+" "+r.modelo]=modMap[r.marca+" "+r.modelo]||[]).push(r.precio)});
+    const modAvg=Object.entries(modMap).map(([k,arr])=>({k,v:avg(arr)}));
+    const bestMod=modAvg.length?modAvg.reduce((m,x)=>x.v<m.v?x:m):null;
+    html+=`<div class="kpis"><div class="kpi"><div class="k">Registros</div><div class="v">${registros.length}</div></div><div class="kpi"><div class="k">Vehículos con datos</div><div class="v">${vehSet.size}</div></div><div class="kpi"><div class="k">Auction más barata</div><div class="v small">${bestAuc?bestAuc.a:"—"}</div></div><div class="kpi"><div class="k">Modelo más barato</div><div class="v small">${bestMod?bestMod.k:"—"}</div></div></div></div>`;
+  }
+  const opps=Object.keys(limites).map(k=>{const [m,a,mo]=k.split("|");const g=avg(registros.filter(r=>r.marca===m&&r.anio==a&&r.modelo===mo).map(r=>r.precio));return {k,m,a,mo,lim:limites[k],g};}).filter(o=>o.g!=null);
+  html+=`<div class="card"><h3>Oportunidades</h3><p class="sub">Vehículos cuyo promedio está por debajo (o cerca) de tu límite.</p>`;
+  if(!opps.length){ html+=`<div class="empty">Define límites de compra (toca "límite · definir" en DATOS) para ver señales aquí.</div>`; }
+  else{ opps.sort((x,y)=>(x.g-x.lim)-(y.g-y.lim)); html+=opps.map(o=>{const good=o.g<=o.lim;return `<div class="oppitem ${good?'good':''}"><div><div class="lab">${o.m} · ${o.a} · ${o.mo}</div><div class="sub" style="margin:2px 0 0">${good?'Mercado favorable':'Por arriba del límite'}</div></div><div class="r">${money(o.g)}<br><span style="color:var(--ink-soft);font-size:.72rem">límite ${money(o.lim)}</span></div></div>`;}).join(""); }
+  html+=`</div>`;
+  html+=`<div class="card"><h3>Promedio por condición</h3>`;
+  if(!complete(s)){ html+=`<p class="sub">Selecciona un vehículo en DATOS.</p><div class="empty">Sin vehículo seleccionado.</div>`; }
+  else{
+    html+=`<p class="sub">${vlabel(s)} — precio promedio según la condición del vehículo.</p>`;
+    const rs=regsOf(s);
+    const rows=CONDS.map(c=>{const p=rs.filter(r=>r.cond===c.k).map(r=>r.precio);return{c,v:avg(p),n:p.length}});
+    if(!rows.some(r=>r.v!=null)){ html+=`<div class="empty">Aún no capturas precios con condición para este vehículo.</div>`; }
+    else{ html+=rows.map(r=>`<div class="condline ${r.c.k}"><div class="cl-lbl"><span class="cd ${r.c.dot}"></span>${r.c.lbl}</div><div class="cl-amt">${r.v!=null?money(r.v):"—"}<span class="cl-n">${r.n} muestra(s)</span></div></div>`).join(""); }
+  }
+  html+=`</div>`;
+  html+=`<div class="card"><h3>Ranking de auctions</h3>`;
+  if(!complete(s)){ html+=`<p class="sub">Selecciona un vehículo en DATOS.</p><div class="empty">Sin vehículo seleccionado.</div>`; }
+  else{ html+=`<p class="sub">${vlabel(s)} — de más barata a más cara.</p>`; const rs=regsOf(s);
+    const rows=AUCTIONS.map(a=>{const p=rs.filter(r=>r.auction===a).map(r=>r.precio);return{a,v:avg(p),n:p.length}}).filter(x=>x.v!=null).sort((x,y)=>x.v-y.v);
+    if(!rows.length){ html+=`<div class="empty">Sin precios para este vehículo todavía.</div>`; }
+    else{ const mx=Math.max(...rows.map(r=>r.v)); html+=rows.map((r,i)=>`<div class="bar ${i===0?'best':''}"><div class="lbl">${r.a}</div><div class="track"><div class="fill" style="width:${Math.max(8,r.v/mx*100)}%"></div></div><div class="amt">${money(r.v)}<span class="n">${r.n} m.</span></div></div>`).join(""); } }
+  html+=`</div>`;
+  html+=`<div class="card"><h3>Comparativo de modelos</h3><p class="sub">Precio global promedio por modelo (todos los datos).</p>`;
+  if(!hasData){ html+=`<div class="empty">Sin datos.</div>`; }
+  else{ const mm={}; registros.forEach(r=>{const k=r.marca+" "+r.modelo;(mm[k]=mm[k]||[]).push(r.precio)});
+    const rows=Object.entries(mm).map(([k,arr])=>({k,v:avg(arr),n:arr.length})).sort((x,y)=>x.v-y.v); const mx=Math.max(...rows.map(r=>r.v));
+    html+=rows.map((r,i)=>`<div class="bar ${i===0?'best':''}"><div class="lbl">${r.k}</div><div class="track"><div class="fill" style="width:${Math.max(8,r.v/mx*100)}%"></div></div><div class="amt">${money(r.v)}<span class="n">${r.n} m.</span></div></div>`).join(""); }
+  html+=`</div>`;
+  html+=`<div class="card"><h3>Tendencia de precios</h3>`;
+  if(!complete(s)){ html+=`<p class="sub">Selecciona un vehículo en DATOS.</p><div class="empty">Sin vehículo seleccionado.</div>`; }
+  else{ const rs=regsOf(s).slice().sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||"")||a.id-b.id); html+=`<p class="sub">${vlabel(s)} — evolución de precios capturados.</p>`;
+    if(rs.length<2){ html+=`<div class="empty">Necesitas al menos 2 precios para ver la tendencia.</div>`; }
+    else{ html+=spark(rs.map(r=>r.precio)); const first=rs[0].precio,last=rs[rs.length-1].precio,d=(last-first)/first, up=last>first; html+=`<div class="trendnote" style="color:${up?'var(--high)':'var(--ok)'}">${up?'▲ Subiendo':'▼ Bajando'} ${pct(d)} · del ${money(first)} al ${money(last)}</div>`; } }
+  html+=`</div>`;
+  html+=`<div class="card"><h3>Datos capturados</h3>`;
+  if(!complete(s)){ html+=`<p class="sub">Selecciona un vehículo en DATOS.</p><div class="empty">Sin vehículo seleccionado.</div>`; }
+  else{ const rs=regsOf(s).slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")||b.id-a.id); html+=`<p class="sub">${vlabel(s)}</p>`;
+    if(!rs.length){ html+=`<div class="empty">Sin precios para este vehículo.</div>`; }
+    else{ html+=`<table><thead><tr><th>Fecha</th><th>Auction</th><th>Cond</th><th style="text-align:right">Precio</th><th></th></tr></thead><tbody>`+rs.map(r=>`<tr><td>${r.fecha||"—"}</td><td>${r.auction}</td><td>${r.cond?`<span class="cd ${r.cond==='verde'?'green':r.cond==='amarillo'?'amber':'red'}"></span>`:"—"}</td><td class="amt">${money(r.precio)}</td><td style="text-align:right"><button class="xbtn" data-del="${r.id}">✕</button></td></tr>`).join("")+`</tbody></table>`; } }
+  html+=`</div>`;
+  html+=`<div class="card"><h3>Respaldo y datos</h3><p class="sub">Además de la nube, puedes bajar un respaldo manual.</p><div class="btn-row"><button class="btn ghost" id="exJson">Respaldo (JSON)</button><button class="btn ghost" id="exCsv">Exportar Excel (CSV)</button><button class="btn ghost" id="imBtn">Restaurar</button><input type="file" id="imFile" accept="application/json" hidden></div><div class="btn-row" style="margin-top:10px"><button class="btn danger" id="clrAll">Borrar todo</button></div></div>`;
+  html+=`<div class="card"><h3>Cuenta</h3><p class="sub" id="accLine">…</p><button class="btn ghost" id="btnLogout">Cerrar sesión</button></div>`;
+  c.innerHTML=html;
+  c.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{const id=Number(b.dataset.del);registros=registros.filter(r=>r.id!==id);persist();renderReportes();render();});
+  $("exJson").onclick=()=>download("respaldo-precios-subastas.json",JSON.stringify({registros,limites,extra,exportado:new Date().toISOString()},null,2),"application/json");
+  $("exCsv").onclick=()=>{const h="MARCA,ANO,MODELO,AUCTION,CONDICION,PRECIO_USD,FECHA";const l=registros.map(r=>[r.marca,r.anio,r.modelo,r.auction,r.cond||"",r.precio,r.fecha].join(","));download("precios-subastas.csv","\ufeff"+[h,...l].join("\n"),"text/csv");};
+  $("imBtn").onclick=()=>$("imFile").click();
+  $("imFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!d.registros)throw 0;if(!confirm("Esto reemplaza tus datos actuales. ¿Continuar?"))return;registros=d.registros||[];limites=d.limites||{};extra=(d.extra&&typeof d.extra==="object")?d.extra:{marcas:{},anios:[]};if(!extra.marcas)extra.marcas={};if(!Array.isArray(extra.anios))extra.anios=[];if(!Array.isArray(extra.auctions))extra.auctions=[];persist();fillVehicleSelects();renderReportes();render();alert("Respaldo restaurado.");}catch(err){alert("Archivo no válido.");}};rd.readAsText(f);e.target.value="";};
+  $("clrAll").onclick=()=>{if(!confirm("¿Borrar TODOS los datos?"))return;if(!confirm("Confirma otra vez: se borra todo."))return;registros=[];limites={};persist();renderReportes();render();};
+  $("btnLogout").onclick=()=>{ if(auth) signOut(auth); };
+  $("accLine").innerHTML = user?("Sesión: <b>"+user.email+"</b>"):"Modo sin nube (datos solo en este dispositivo).";
+}
+function spark(vals){
+  const w=600,h=110,pad=8; const mn=Math.min(...vals),mx=Math.max(...vals),rng=(mx-mn)||1;
+  const pts=vals.map((v,i)=>{const x=pad+i*(w-2*pad)/(vals.length-1);const y=h-pad-(v-mn)/rng*(h-2*pad);return [x,y]});
+  const line=pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
+  const area=`M${pad} ${h-pad} `+pts.map(p=>"L"+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ")+` L${w-pad} ${h-pad} Z`;
+  const dots=pts.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5" fill="#1D4ED8"/>`).join("");
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><path d="${area}" fill="rgba(29,78,216,.10)"/><path d="${line}" fill="none" stroke="#1D4ED8" stroke-width="2.5" stroke-linejoin="round"/>${dots}</svg>`;
+}
+function download(name,content,type){const b=new Blob([content],{type});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),500);}
+
+/* ===== Indicador ===== */
+function updateSync(errored){
+  const pill=$("syncPill"), txt=$("syncTxt");
+  if(!cloudMode){ pill.className="sync"; txt.textContent="Local"; return; }
+  if(errored){ pill.className="sync err"; txt.textContent="Error"; return; }
+  if(!navigator.onLine){ pill.className="sync off"; txt.textContent="Sin conexión"; return; }
+  if(cloudReady){ pill.className="sync on"; txt.textContent="Sincronizado"; }
+  else { pill.className="sync"; txt.textContent="Conectando…"; }
+}
+window.addEventListener("online",()=>updateSync()); window.addEventListener("offline",()=>updateSync());
+
+/* ===== Mostrar ===== */
+function showApp(){ $("authOverlay").classList.add("hide"); $("app").classList.remove("hide"); }
+function showLogin(){ $("app").classList.add("hide"); $("authOverlay").classList.remove("hide"); }
+
+/* ===== Auth UI ===== */
+function authErrMsg(e){
+  const m={"auth/invalid-email":"Correo no válido.","auth/missing-password":"Escribe tu contraseña.","auth/weak-password":"La contraseña debe tener al menos 6 caracteres.","auth/email-already-in-use":"Ese correo ya tiene cuenta. Pulsa Entrar.","auth/invalid-credential":"Correo o contraseña incorrectos.","auth/wrong-password":"Contraseña incorrecta.","auth/user-not-found":"No existe esa cuenta. Pulsa Crear cuenta nueva.","auth/network-request-failed":"Sin conexión a internet.","auth/too-many-requests":"Demasiados intentos. Espera un momento.","auth/operation-not-allowed":"Falta activar 'Correo/Contraseña' en Firebase Authentication."};
+  return m[e.code]||("Error: "+(e.message||e.code));
+}
+$("btnLogin").addEventListener("click",()=>{ $("authErr").textContent=""; signInWithEmailAndPassword(auth,$("authEmail").value.trim(),$("authPass").value).catch(e=>$("authErr").textContent=authErrMsg(e)); });
+$("btnSignup").addEventListener("click",()=>{ $("authErr").textContent=""; createUserWithEmailAndPassword(auth,$("authEmail").value.trim(),$("authPass").value).catch(e=>$("authErr").textContent=authErrMsg(e)); });
+$("authPass").addEventListener("keydown",e=>{if(e.key==="Enter")$("btnLogin").click();});
+
+/* ===== Sincronización de datos ===== */
+function subscribe(){
+  if(unsub) unsub();
+  unsub=onSnapshot(userRef, snap=>{
+    if(snap.exists()){
+      const d=snap.data();
+      registros=Array.isArray(d.registros)?d.registros:[];
+      limites=(d.limites&&typeof d.limites==="object")?d.limites:{};
+      extra=(d.extra&&typeof d.extra==="object")?d.extra:{marcas:{},anios:[]}; if(!extra.marcas)extra.marcas={}; if(!Array.isArray(extra.anios))extra.anios=[]; if(!Array.isArray(extra.auctions))extra.auctions=[];
+      saveLocal(); cloudReady=true; clearErr(); updateSync(); fillVehicleSelects(); render(); refreshRep(); if(!$("viewCat").classList.contains("hide")) renderCatalogo();
+    } else {
+      if(registros.length || Object.keys(limites).length){ persist(); }
+      else { setDoc(userRef,{registros:[],limites:{},extra:{marcas:{},anios:[]}}).catch(e=>showErr(firestoreErrMsg(e))); }
+    }
+  }, err=>{ showErr(firestoreErrMsg(err)); updateSync(true); });
+}
+
+/* ===== Actualización manual/automática (sin recargar) ===== */
+let pulling=false;
+async function pullOnce(showFeedback){
+  if(!userRef || pulling) return;
+  pulling=true;
+  if(showFeedback){ const t=$("syncTxt"); if(t) t.textContent="Actualizando…"; }
+  try{
+    const snap=await getDoc(userRef);
+    if(snap.exists()){
+      const d=snap.data();
+      registros=Array.isArray(d.registros)?d.registros:[];
+      limites=(d.limites&&typeof d.limites==="object")?d.limites:{};
+      extra=(d.extra&&typeof d.extra==="object")?d.extra:{marcas:{},anios:[]}; if(!extra.marcas)extra.marcas={}; if(!Array.isArray(extra.anios))extra.anios=[]; if(!Array.isArray(extra.auctions))extra.auctions=[];
+      saveLocal(); cloudReady=true; clearErr(); fillVehicleSelects(); render(); refreshRep(); if(!$("viewCat").classList.contains("hide")) renderCatalogo();
+    }
+  }catch(e){ /* si no hay red, se queda con lo local */ }
+  finally{ pulling=false; updateSync(); }
+}
+// Al volver a la app/pestaña, refresca solo
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") pullOnce(); });
+window.addEventListener("focus",()=>pullOnce());
+// Tocar el indicador de arriba = actualizar al instante
+document.addEventListener("DOMContentLoaded",()=>{});
+$("syncPill").style.cursor="pointer";
+$("syncPill").title="Toca para actualizar ahora";
+$("syncPill").addEventListener("click",()=>pullOnce(true));
+
+/* ===== Arranque ===== */
+function bootLocalOnly(reason){
+  cloudMode=false; showApp(); updateSync(); render();
+  if(reason) showErr("Modo sin nube: "+reason+" — los datos se guardan solo en este dispositivo.");
+}
+try{
+  const app=initializeApp(firebaseConfig);
+  auth=getAuth(app);
+  db=initializeFirestore(app,{ localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }, DATABASE_ID);
+  cloudMode=true;
+  onAuthStateChanged(auth, u=>{
+    user=u;
+    if(u){ userRef=doc(db,"users",u.uid); showApp(); updateSync(); subscribe(); render(); }
+    else { if(unsub){unsub();unsub=null;} userRef=null; cloudReady=false; showLogin(); }
+  });
+}catch(e){ console.warn("firebase",e); bootLocalOnly("no se pudo iniciar Firebase"); }
+</script>
+</body>
+</html>
